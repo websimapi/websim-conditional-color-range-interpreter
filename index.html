@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conditional Color Range Interpreter</title>
+    <style>
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: #fff;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 2.5em;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #e0e0e0;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            font-family: inherit;
+            font-size: 14px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        input::placeholder, textarea::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        textarea {
+            height: 120px;
+            resize: vertical;
+        }
+
+        .execute-btn {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .execute-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .output-section {
+            margin-top: 30px;
+        }
+
+        .status-indicator {
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .status-valid {
+            background: rgba(76, 175, 80, 0.3);
+            border: 1px solid #4caf50;
+        }
+
+        .status-invalid {
+            background: rgba(244, 67, 54, 0.3);
+            border: 1px solid #f44336;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .result-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .color-preview {
+            width: 100%;
+            height: 60px;
+            border-radius: 10px;
+            margin: 10px 0;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .iteration-results {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .iteration-item {
+            margin-bottom: 10px;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+            font-size: 12px;
+        }
+
+        .coordinates {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .coord-item {
+            text-align: center;
+            padding: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Conditional Color Range Interpreter</h1>
+        
+        <div class="input-section">
+            <div class="input-group">
+                <label for="valueInput">Value (v):</label>
+                <input type="number" id="valueInput" placeholder="Enter value between 120-132" value="125">
+            </div>
+            
+            <div class="input-group">
+                <label for="expressionInput">Expression:</label>
+                <textarea id="expressionInput" placeholder="Enter expression with ]}( ... ){[ delimiters">]}(REDRGREENRBLUER > 120 + 9*[e], 130 + 2*[e] | L(X,Y,R,G,B) R(X,Y,R,G,B)){[</textarea>
+            </div>
+            
+            <button class="execute-btn" onclick="executeInterpreter()">Execute Interpreter</button>
+        </div>
+        
+        <div class="output-section">
+            <div id="statusIndicator" class="status-indicator" style="display: none;"></div>
+            <div id="results" class="results-grid"></div>
+        </div>
+    </div>
+
+    <script>
+        class ColorRangeInterpreter {
+            constructor() {
+                this.ranges = [
+                    { min: 120, max: 129, color: 'RED' },
+                    { min: 130, max: 132, color: 'GREEN' }
+                ];
+                this.colorValues = {
+                    RED: 255,
+                    GREEN: 128,
+                    BLUE: 64
+                };
+            }
+
+            validateRange(value) {
+                return this.ranges.find(range => value >= range.min && value <= range.max);
+            }
+
+            parseExpression(expression) {
+                // Extract content between ]}( and ){[
+                const match = expression.match(/\]\}\((.*?)\)\{\[/);
+                if (!match) {
+                    throw new Error('Invalid expression format. Must be enclosed in ]}( ... ){[');
+                }
+                return match[1];
+            }
+
+            evaluateThreshold(e, baseValue, multiplier) {
+                return baseValue + multiplier * e;
+            }
+
+            processColorConcatenation() {
+                const { RED, GREEN, BLUE } = this.colorValues;
+                return `${RED}R${GREEN}R${BLUE}R`;
+            }
+
+            executeDirectionalOperation(operation, params) {
+                const [x, y, r, g, b] = params;
+                
+                if (operation === 'L') {
+                    // Shift left - move all parameters left
+                    return [y, r, g, b, x];
+                } else if (operation === 'R') {
+                    // Shift right - move all parameters right
+                    return [b, x, y, r, g];
+                }
+                
+                return params;
+            }
+
+            interpret(value, expression) {
+                const results = {
+                    isValid: false,
+                    rangeInfo: null,
+                    iterations: [],
+                    finalCoordinates: null,
+                    colorPreview: null
+                };
+
+                // Validate range
+                const rangeInfo = this.validateRange(value);
+                if (!rangeInfo) {
+                    return results;
+                }
+
+                results.isValid = true;
+                results.rangeInfo = rangeInfo;
+
+                try {
+                    const parsedExpression = this.parseExpression(expression);
+                    
+                    // Process iterations for [e] from 1 to 5
+                    for (let e = 1; e <= 5; e++) {
+                        const threshold1 = this.evaluateThreshold(e, 120, 9);
+                        const threshold2 = this.evaluateThreshold(e, 130, 2);
+                        
+                        const colorConcat = this.processColorConcatenation();
+                        const colorValue = parseInt(colorConcat.replace(/[R]/g, ''));
+                        
+                        const comparison1 = colorValue > threshold1;
+                        const comparison2 = colorValue > threshold2;
+                        
+                        // Generate coordinates based on current iteration
+                        let coordinates = [
+                            50 + e * 10,  // X
+                            30 + e * 5,   // Y
+                            this.colorValues.RED + e * 2,   // R
+                            this.colorValues.GREEN + e * 3, // G
+                            this.colorValues.BLUE + e * 4   // B
+                        ];
+
+                        // Apply directional operations
+                        if (comparison1) {
+                            coordinates = this.executeDirectionalOperation('L', coordinates);
+                        }
+                        if (comparison2) {
+                            coordinates = this.executeDirectionalOperation('R', coordinates);
+                        }
+
+                        results.iterations.push({
+                            e,
+                            threshold1,
+                            threshold2,
+                            colorValue,
+                            comparison1,
+                            comparison2,
+                            coordinates: [...coordinates]
+                        });
+
+                        results.finalCoordinates = coordinates;
+                    }
+
+                    // Generate color preview
+                    const finalCoords = results.finalCoordinates;
+                    if (finalCoords && finalCoords.length >= 5) {
+                        const [x, y, r, g, b] = finalCoords;
+                        results.colorPreview = `rgb(${Math.min(255, Math.abs(r))}, ${Math.min(255, Math.abs(g))}, ${Math.min(255, Math.abs(b))})`;
+                    }
+
+                } catch (error) {
+                    results.error = error.message;
+                }
+
+                return results;
+            }
+        }
+
+        const interpreter = new ColorRangeInterpreter();
+
+        function executeInterpreter() {
+            const value = parseInt(document.getElementById('valueInput').value);
+            const expression = document.getElementById('expressionInput').value;
+            
+            const results = interpreter.interpret(value, expression);
+            displayResults(results);
+        }
+
+        function displayResults(results) {
+            const statusIndicator = document.getElementById('statusIndicator');
+            const resultsContainer = document.getElementById('results');
+            
+            statusIndicator.style.display = 'block';
+            
+            if (!results.isValid) {
+                statusIndicator.className = 'status-indicator status-invalid';
+                statusIndicator.textContent = 'Invalid: Value must be in range [120-129] or [130-132]';
+                resultsContainer.innerHTML = '';
+                return;
+            }
+
+            statusIndicator.className = 'status-indicator status-valid';
+            statusIndicator.textContent = `Valid: Value falls in ${results.rangeInfo.color} range [${results.rangeInfo.min}-${results.rangeInfo.max}]`;
+
+            if (results.error) {
+                resultsContainer.innerHTML = `<div class="result-card"><h3>Error</h3><p>${results.error}</p></div>`;
+                return;
+            }
+
+            let html = '';
+
+            // Final coordinates card
+            if (results.finalCoordinates) {
+                html += `
+                    <div class="result-card">
+                        <h3>Final Coordinates</h3>
+                        <div class="coordinates">
+                            <div class="coord-item">X: ${results.finalCoordinates[0]}</div>
+                            <div class="coord-item">Y: ${results.finalCoordinates[1]}</div>
+                            <div class="coord-item">R: ${results.finalCoordinates[2]}</div>
+                            <div class="coord-item">G: ${results.finalCoordinates[3]}</div>
+                            <div class="coord-item">B: ${results.finalCoordinates[4]}</div>
+                        </div>
+                        ${results.colorPreview ? `<div class="color-preview" style="background-color: ${results.colorPreview};"></div>` : ''}
+                    </div>
+                `;
+            }
+
+            // Iterations card
+            if (results.iterations.length > 0) {
+                html += `
+                    <div class="result-card">
+                        <h3>Iteration Results</h3>
+                        <div class="iteration-results">
+                `;
+                
+                results.iterations.forEach(iter => {
+                    html += `
+                        <div class="iteration-item">
+                            <strong>e=${iter.e}:</strong> 
+                            Thresholds: ${iter.threshold1}, ${iter.threshold2} | 
+                            Color Value: ${iter.colorValue} | 
+                            Comparisons: ${iter.comparison1 ? 'L✓' : 'L✗'}, ${iter.comparison2 ? 'R✓' : 'R✗'} |
+                            Coords: [${iter.coordinates.join(', ')}]
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+
+            resultsContainer.innerHTML = html;
+        }
+
+        // Initialize with default execution
+        executeInterpreter();
+    </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
+
